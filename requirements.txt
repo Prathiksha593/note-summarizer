@@ -4,5 +4,3 @@ pillow
 transformers
 torch
 sentencepiece
-streamlit
-requests
