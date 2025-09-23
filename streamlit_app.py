@@ -1,31 +1,29 @@
 
 import streamlit as st
-from PIL import Image
-import pytesseract
-from transformers import pipeline
+import requests
+import base64
 
-st.title("Notes Summarizer & Scanner")
+API_KEY = "YOUR_OCR_SPACE_API_KEY"
 
-uploaded_file = st.file_uploader("Upload an image or a text file", type=['png','jpg','jpeg','txt'])
+def ocr_space_api(image_bytes):
+    payload = {
+        'base64Image': "data:image/png;base64," + base64.b64encode(image_bytes).decode(),
+        'language': 'eng',
+        'isOverlayRequired': False,
+    }
+    response = requests.post('https://api.ocr.space/parse/image',
+                             data=payload,
+                             headers={'apikey': API_KEY})
+    result = response.json()
+    if result['IsErroredOnProcessing']:
+        st.error(result.get('ErrorMessage', ['OCR processing error'])[0])
+        return ""
+    return result['ParsedResults'][0]['ParsedText']
 
-if uploaded_file is not None:
-    if uploaded_file.type.startswith("image/"):
-        img = Image.open(uploaded_file).convert('RGB')
-        st.image(img, caption="Uploaded Image", use_column_width=True)
-        text = pytesseract.image_to_string(img)
-        st.text_area("Extracted Text", text, height=150)
-    elif uploaded_file.type == "text/plain":
-        text = uploaded_file.getvalue().decode("utf-8")
-        st.text_area("File Text", text, height=150)
-    else:
-        text = ""
-        st.warning("Unsupported file type.")
+st.title("Notes Summarizer with OCR.space API")
 
-    if text.strip():
-        st.write("Generating summary...")
-        summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-        summary = summarizer(text[:1024], max_length=100, min_length=30, do_sample=False)[0]['summary_text']
-        st.subheader("Summary")
-        st.write(summary)
-    else:
-        st.info("No text extracted to summarize.")
+uploaded_file = st.file_uploader("Upload an image", type=['png','jpg','jpeg'])
+if uploaded_file:
+    image_bytes = uploaded_file.read()
+    extracted_text = ocr_space_api(image_bytes)
+    st.text_area("Extracted Text", extracted_text, height=150)
